@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>St. John Altar Server Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+        .calendar-day { min-height: 140px; }
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .add-mass-btn {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .calendar-day:hover .add-mass-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app" class="max-w-7xl mx-auto p-4">
+
+        <!-- Login View -->
+        <div id="login-view" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-10">
+            <img src="https://i.postimg.cc/NjV6BNRs/SJAS-logo.jpg" alt="St. John Altar Server Logo" class="w-24 h-24 mx-auto mb-4 rounded-full">
+            <h1 class="text-2xl font-bold text-center mb-6" data-lang-key="login_title">St. John Altar Server Attendance</h1>
+            <div id="login-error" class="text-red-500 text-center mb-4 hidden"></div>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700" data-lang-key="username_label">Username/Code</label>
+                    <input type="text" id="username" name="username" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700" data-lang-key="password_label">Password</label>
+                    <input type="password" id="password" name="password" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                </div>
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" data-lang-key="login_button">Login</button>
+            </form>
+        </div>
+
+        <!-- Main App View (hidden by default) -->
+        <div id="main-app-view" class="hidden">
+            <header class="bg-white shadow-md rounded-lg p-4 mb-6 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900" data-lang-key="main_title">St. John Altar Server Attendance System</h1>
+                    <p class="text-gray-600"><span data-lang-key="welcome">Welcome</span>, <span id="user-role" class="font-semibold"></span> <span id="user-name" class="font-semibold"></span>!</p>
+                    <p class="text-gray-600 text-xs">User ID: <span id="user-id-display" class="font-mono"></span></p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="lang-switcher" class="p-2 rounded-full hover:bg-gray-200">
+                        <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m0 18a9 9 0 009-9M3 12h18M3 12a9 9 0 019-9m-9 9a9 9 0 009 9" />
+                        </svg>
+                    </button>
+                    <button id="logout-btn" class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700" data-lang-key="logout_button">Logout</button>
+                </div>
+            </header>
+
+            <div id="admin-staff-view" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Member Management -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4" data-lang-key="member_management">Member Management</h2>
+                        <form id="add-member-form" class="space-y-4">
+                            <input type="text" id="member-name" data-lang-placeholder="member_name_placeholder" placeholder="Member Name" class="w-full px-3 py-2 border rounded-md" required>
+                            <input type="text" id="member-code" data-lang-placeholder="member_code_placeholder" placeholder="Unique Code" class="w-full px-3 py-2 border rounded-md" required>
+                            <input type="password" id="member-password" data-lang-placeholder="password_placeholder" placeholder="Password" class="w-full px-3 py-2 border rounded-md" required>
+                            <button type="submit" class="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700" data-lang-key="add_member_button">Add Member</button>
+                        </form>
+                        <div id="member-list" class="mt-4 max-h-60 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Staff Management (Admin Only) -->
+                    <div id="staff-management-section" class="bg-white p-6 rounded-lg shadow-md hidden">
+                        <h2 class="text-xl font-bold mb-4" data-lang-key="staff_management">Staff Management</h2>
+                        <form id="add-staff-form" class="space-y-4">
+                            <input type="text" id="staff-code" data-lang-placeholder="staff_code_placeholder" placeholder="Staff Code" class="w-full px-3 py-2 border rounded-md" required>
+                            <input type="password" id="staff-password" data-lang-placeholder="password_placeholder" placeholder="Password" class="w-full px-3 py-2 border rounded-md" required>
+                            <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700" data-lang-key="add_staff_button">Add Staff</button>
+                        </form>
+                        <div id="staff-list" class="mt-4 max-h-60 overflow-y-auto"></div>
+                    </div>
+
+                     <!-- Mass Timetable Management -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4" data-lang-key="mass_timetable">Mass Timetable</h2>
+                        <form id="add-mass-form" class="space-y-4">
+                            <select id="mass-day" class="w-full px-3 py-2 border rounded-md">
+                                <option value="Sunday" data-lang-key="day_sunday">Sunday</option>
+                                <option value="Monday" data-lang-key="day_monday">Monday</option>
+                                <option value="Tuesday" data-lang-key="day_tuesday">Tuesday</option>
+                                <option value="Wednesday" data-lang-key="day_wednesday">Wednesday</option>
+                                <option value="Thursday" data-lang-key="day_thursday">Thursday</option>
+                                <option value="Friday" data-lang-key="day_friday">Friday</option>
+                                <option value="Saturday" data-lang-key="day_saturday">Saturday</option>
+                            </select>
+                            <input type="time" id="mass-time" class="w-full px-3 py-2 border rounded-md" required>
+                            <button type="submit" class="w-full py-2 px-4 bg-purple-600 text-white rounded-md hover:bg-purple-700" data-lang-key="add_recurring_mass_button">Add Recurring Mass</button>
+                        </form>
+                        <div id="mass-list" class="mt-4 max-h-60 overflow-y-auto"></div>
+                    </div>
+                </div>
+                 <!-- Mass Reports (Admin/Staff) -->
+                <div id="mass-reports-section" class="bg-white p-6 rounded-lg shadow-md mt-6 hidden">
+                    <h2 class="text-xl font-bold mb-4" data-lang-key="mass_reports">Mass Reports</h2>
+                    <div id="report-list" class="space-y-4 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+            
+            <div id="all-users-view">
+                 <!-- Calendar View -->
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <button id="prev-month-btn" class="px-4 py-2 bg-gray-200 rounded-md">&lt;</button>
+                        <h2 id="calendar-title" class="text-xl font-bold"></h2>
+                        <button id="next-month-btn" class="px-4 py-2 bg-gray-200 rounded-md">&gt;</button>
+                    </div>
+                    <div class="calendar-grid grid grid-cols-7 text-center font-semibold">
+                        <div data-lang-key="day_sun_short">Sun</div><div data-lang-key="day_mon_short">Mon</div><div data-lang-key="day_tue_short">Tue</div><div data-lang-key="day_wed_short">Wed</div><div data-lang-key="day_thu_short">Thu</div><div data-lang-key="day_fri_short">Fri</div><div data-lang-key="day_sat_short">Sat</div>
+                    </div>
+                    <div id="calendar-body" class="calendar-grid"></div>
+                </div>
+
+                <!-- Attendance Requests (Admin/Staff) -->
+                <div id="attendance-requests-section" class="bg-white p-6 rounded-lg shadow-md mt-6 hidden">
+                    <h2 class="text-xl font-bold mb-4" data-lang-key="attendance_requests">Attendance Requests</h2>
+                    <div id="request-list" class="space-y-4"></div>
+                </div>
+                
+                <!-- View Records -->
+                <div class="bg-white p-6 rounded-lg shadow-md mt-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold" data-lang-key="attendance_records">Attendance Records</h2>
+                        <div class="flex space-x-2">
+                             <input type="file" id="csv-import-input" class="hidden" accept=".csv">
+                             <button id="import-csv-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" data-lang-key="import_csv">Import from CSV</button>
+                             <button id="export-csv-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" data-lang-key="export_csv">Export to CSV</button>
+                        </div>
+                    </div>
+                    <input type="date" id="record-filter-date" class="px-3 py-2 border rounded-md mb-4">
+                    <div id="records-list" class="max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="mass-detail-modal" class="modal-backdrop hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg relative">
+            <button onclick="window.closeModal('mass-detail-modal')" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 id="mass-modal-title" class="text-lg font-bold mb-4" data-lang-key="mass_details">Mass Details</h3>
+            <div id="mass-modal-content" class="mb-4"></div>
+            <button id="mass-report-btn" class="w-full py-2 px-4 bg-yellow-500 text-white rounded-md hover:bg-yellow-600" data-lang-key="submit_mass_report">Submit Mass Report</button>
+        </div>
+    </div>
+
+    <div id="mass-report-modal" class="modal-backdrop hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg relative">
+            <button onclick="window.closeModal('mass-report-modal')" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-lg font-bold mb-4" data-lang-key="submit_mass_report">Submit Mass Report</h3>
+            <form id="mass-report-form">
+                <input type="hidden" id="report-mass-id">
+                <div class="mb-4">
+                    <label for="report-briefing" class="block text-sm font-medium" data-lang-key="report_briefing">Mass Service Briefing</label>
+                    <textarea id="report-briefing" rows="4" class="w-full mt-1 px-3 py-2 border rounded-md"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="report-chief-officer" class="block text-sm font-medium" data-lang-key="report_chief_officer">Items to Report to Chief Service Officer</label>
+                    <textarea id="report-chief-officer" rows="4" class="w-full mt-1 px-3 py-2 border rounded-md"></textarea>
+                </div>
+                <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" data-lang-key="submit_button">Submit</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="add-exception-modal" class="modal-backdrop hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
+            <button onclick="window.closeModal('add-exception-modal')" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-lg font-bold mb-4" data-lang-key="add_cancel_mass">Add / Cancel Mass</h3>
+            <form id="add-exception-form">
+                <input type="hidden" id="exception-date">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium" data-lang-key="exception_type">Type</label>
+                    <select id="exception-type" class="w-full mt-1 px-3 py-2 border rounded-md">
+                        <option value="temporary" data-lang-key="temporary_mass">Temporary Mass</option>
+                        <option value="cancelled" data-lang-key="cancel_mass">Cancel Mass</option>
+                    </select>
+                </div>
+                <div id="temporary-mass-fields">
+                    <div class="mb-4">
+                        <label for="exception-time" class="block text-sm font-medium" data-lang-key="time">Time</label>
+                        <input type="time" id="exception-time" class="w-full mt-1 px-3 py-2 border rounded-md">
+                    </div>
+                    <div class="mb-4">
+                        <label for="exception-title" class="block text-sm font-medium" data-lang-key="title">Title</label>
+                        <input type="text" id="exception-title" data-lang-placeholder="special_mass_placeholder" placeholder="e.g., Special Holiday Mass" class="w-full mt-1 px-3 py-2 border rounded-md">
+                    </div>
+                </div>
+                <div id="cancelled-mass-fields" class="hidden">
+                     <div class="mb-4">
+                        <label for="cancellation-mass-id" class="block text-sm font-medium" data-lang-key="mass_to_cancel">Mass to Cancel</label>
+                        <select id="cancellation-mass-id" class="w-full mt-1 px-3 py-2 border rounded-md"></select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" data-lang-key="submit_button">Submit</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="change-password-modal" class="modal-backdrop hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm relative">
+            <button onclick="window.closeModal('change-password-modal')" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-lg font-bold mb-4" data-lang-key="change_password">Change Password</h3>
+            <p class="mb-2">Changing password for: <strong id="password-user-name"></strong></p>
+            <form id="change-password-form">
+                <input type="hidden" id="password-user-collection">
+                <input type="hidden" id="password-user-id">
+                <div class="mb-4">
+                    <label for="new-password" class="block text-sm font-medium" data-lang-key="new_password">New Password</label>
+                    <input type="password" id="new-password" class="w-full mt-1 px-3 py-2 border rounded-md" required>
+                </div>
+                <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" data-lang-key="save_password_button">Save New Password</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="custom-confirm-modal" class="modal-backdrop hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 id="confirm-modal-title" class="text-lg font-bold mb-4" data-lang-key="confirmation">Confirmation</h3>
+            <p id="confirm-modal-text" class="mb-6"></p>
+            <div class="flex justify-end space-x-4">
+                <button id="confirm-modal-cancel" class="px-4 py-2 bg-gray-300 rounded-md" data-lang-key="cancel_button">Cancel</button>
+                <button id="confirm-modal-ok" class="px-4 py-2 bg-red-600 text-white rounded-md" data-lang-key="ok_button">OK</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, setLogLevel, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where, getDocs, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // --- PRE-DEFINED VARIABLES ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'altar-boy-attendance-dev';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIza...", authDomain: "...", projectId: "..." };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- FIREBASE INITIALIZATION ---
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        setLogLevel('debug');
+
+        // --- I18N (Internationalization) ---
+        const translations = {
+            en: {
+                login_title: "St. John Altar Server Attendance", main_title: "St. John Altar Server Attendance System",
+                member_management: "Member Management", member_name_placeholder: "Member Name", member_code_placeholder: "Unique Code", password_placeholder: "Password", add_member_button: "Add Member",
+                staff_management: "Staff Management", staff_code_placeholder: "Staff Code", add_staff_button: "Add Staff",
+                mass_timetable: "Mass Timetable", add_recurring_mass_button: "Add Recurring Mass",
+                day_sunday: "Sunday", day_monday: "Monday", day_tuesday: "Tuesday", day_wednesday: "Wednesday", day_thursday: "Thursday", day_friday: "Friday", day_saturday: "Saturday",
+                day_sun_short: "Sun", day_mon_short: "Mon", day_tue_short: "Tue", day_wed_short: "Wed", day_thu_short: "Thu", day_fri_short: "Fri", day_sat_short: "Sat",
+                attendance_requests: "Attendance Requests", attendance_records: "Attendance Records",
+                mass_details: "Mass Details", confirmation: "Confirmation", cancel_button: "Cancel", ok_button: "OK",
+                add_cancel_mass: "Add / Cancel Mass", exception_type: "Type", temporary_mass: "Temporary Mass", cancel_mass: "Cancel Mass",
+                time: "Time", title: "Title", special_mass_placeholder: "e.g., Special Holiday Mass", mass_to_cancel: "Mass to Cancel", submit_button: "Submit",
+                attended: "attended", present: "Present", assign: "Assign", not_assigned: "You are not assigned to this mass.", attendance_marked: "Your attendance has been marked.",
+                request_sent: "Your request has been sent.", provide_reason: "Please provide a reason.",
+                confirm_delete_member: "Are you sure you want to delete this member?",
+                confirm_delete_staff: "Are you sure you want to delete this staff?",
+                confirm_delete_mass: "Are you sure you want to delete this mass?",
+                confirm_delete_exception: "Are you sure you want to delete this temporary/cancelled mass?",
+                no_pending_requests: "No pending requests.", no_records_found: "No records found for the selected criteria.",
+                request_reason_placeholder: "Enter reason for late request...", mark_attendance_button: "Mark My Attendance", send_request_button: "Send Request",
+                approve: "Approve", deny: "Deny", export_csv: "Export to CSV", import_csv: "Import from CSV",
+                change_password: "Change Password", new_password: "New Password", save_password_button: "Save New Password", password_changed: "Password changed successfully.",
+                import_confirm: "This will add attendance records from the file. It will not delete existing records. Duplicates may be created. Proceed?",
+                mass_reports: "Mass Reports", submit_mass_report: "Submit Mass Report",
+                report_briefing: "Mass Service Briefing", report_chief_officer: "Items to Report to Chief Service Officer",
+                report_submitted_by: "Submitted by", status: "Status", pending: "Pending", approved: "Approved", denied: "Denied",
+                report_submitted_success: "Report submitted successfully.", welcome: "Welcome", logout_button: "Logout",
+            },
+            zh: {
+                login_title: "聖若翰輔祭會出席系統", main_title: "聖若翰輔祭會出席系統",
+                member_management: "成員管理", member_name_placeholder: "成員姓名", member_code_placeholder: "唯一代碼", password_placeholder: "密碼", add_member_button: "新增成員",
+                staff_management: "職員管理", staff_code_placeholder: "職員代碼", add_staff_button: "新增職員",
+                mass_timetable: "彌撒時間表", add_recurring_mass_button: "新增常規彌撒",
+                day_sunday: "星期日", day_monday: "星期一", day_tuesday: "星期二", day_wednesday: "星期三", day_thursday: "星期四", day_friday: "星期五", day_saturday: "星期六",
+                day_sun_short: "日", day_mon_short: "一", day_tue_short: "二", day_wed_short: "三", day_thu_short: "四", day_fri_short: "五", day_sat_short: "六",
+                attendance_requests: "出席請求", attendance_records: "出席記錄",
+                mass_details: "彌撒詳情", confirmation: "確認", cancel_button: "取消", ok_button: "確定",
+                add_cancel_mass: "新增/取消彌撒", exception_type: "類型", temporary_mass: "臨時彌撒", cancel_mass: "取消彌撒",
+                time: "時間", title: "標題", special_mass_placeholder: "例如, 特別節日彌撒", mass_to_cancel: "要取消的彌撒", submit_button: "提交",
+                attended: "人出席", present: "出席", assign: "分派", not_assigned: "您未被分派參加此彌撒。", attendance_marked: "您的出席記錄已標記。",
+                request_sent: "您的請求已發送。", provide_reason: "請提供原因。",
+                confirm_delete_member: "您確定要刪除此成員嗎？",
+                confirm_delete_staff: "您確定要刪除此職員嗎？",
+                confirm_delete_mass: "您確定要刪除此彌撒嗎？",
+                confirm_delete_exception: "您確定要刪除此臨時/已取消的彌撒嗎？",
+                no_pending_requests: "沒有待處理的請求。", no_records_found: "找不到符合條件的記錄。",
+                request_reason_placeholder: "輸入延遲請求的原因...", mark_attendance_button: "標記我的出席", send_request_button: "發送請求",
+                approve: "批准", deny: "拒絕", export_csv: "匯出為 CSV", import_csv: "從 CSV 匯入",
+                change_password: "更改密碼", new_password: "新密碼", save_password_button: "儲存新密碼", password_changed: "密碼已成功更改。",
+                import_confirm: "這將從檔案中新增出席記錄。它不會刪除現有記錄，如果記錄已存在，可能會產生重複項。確定要繼續嗎？",
+                mass_reports: "彌撒報告", submit_mass_report: "提交彌撒報告",
+                report_briefing: "彌撒服務簡報", report_chief_officer: "需要匯報禮節司事項",
+                report_submitted_by: "提交者", status: "狀態", pending: "待處理", approved: "已批准", denied: "已拒絕",
+                report_submitted_success: "報告已成功提交。", welcome: "歡迎", logout_button: "登出",
+            }
+        };
+        let currentLang = localStorage.getItem('altarBoyLang') || 'en';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('altarBoyLang', lang);
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.getAttribute('data-lang-key');
+                if (translations[lang] && translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('[data-lang-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-lang-placeholder');
+                 if (translations[lang] && translations[lang][key]) {
+                    el.placeholder = translations[lang][key];
+                }
+            });
+            if(currentRole) {
+                renderCalendar();
+                renderRecords();
+                if(currentRole === 'admin' || currentRole === 'staff') {
+                    getDocs(collection(db, `artifacts/${appId}/public/data/reports`)).then(snapshot => {
+                        renderReportList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    });
+                }
+            }
+        }
+
+
+        // --- GLOBAL STATE ---
+        let currentUser = null;
+        let currentRole = null;
+        let currentMemberDetails = null;
+        let currentDate = new Date();
+        let unsubscribeListeners = [];
+
+        // --- DOM ELEMENTS ---
+        const loginView = document.getElementById('login-view');
+        const mainAppView = document.getElementById('main-app-view');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+
+        // --- AUTHENTICATION & INITIALIZATION ---
+        
+        window.onload = () => {
+             setLanguage(currentLang);
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                try {
+                    if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+                    else await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                }
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = loginForm.username.value;
+            const password = loginForm.password.value;
+            loginError.classList.add('hidden');
+
+            if (username === 'admin' && password === 'default') {
+                await setupSession('admin', { name: 'Admin', code: 'admin' }); return;
+            }
+
+            const staffDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/staff`, username));
+            if (staffDoc.exists() && staffDoc.data().password === password) {
+                await setupSession('staff', { name: username, code: username }); return;
+            }
+            
+            const memberDoc = await getDoc(doc(db, `artifacts/${appId}/public/data/members`, username));
+            if (memberDoc.exists() && memberDoc.data().password === password) {
+                await setupSession('member', { ...memberDoc.data(), code: memberDoc.id }); return;
+            }
+
+            loginError.textContent = "Invalid username or password.";
+            loginError.classList.remove('hidden');
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            currentUser = null; currentRole = null; currentMemberDetails = null;
+            unsubscribeListeners.forEach(unsub => unsub());
+            unsubscribeListeners = [];
+            mainAppView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            loginForm.reset();
+        });
+        
+        document.getElementById('lang-switcher').addEventListener('click', () => {
+            const newLang = currentLang === 'en' ? 'zh' : 'en';
+            setLanguage(newLang);
+        });
+
+        async function setupSession(role, userDetails) {
+            currentRole = role;
+            currentUser = userDetails;
+            if (role === 'member') currentMemberDetails = userDetails;
+
+            document.getElementById('user-role').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+            document.getElementById('user-name').textContent = userDetails.name || userDetails.code;
+            document.getElementById('user-id-display').textContent = auth.currentUser?.uid || 'N/A';
+            
+            loginView.classList.add('hidden');
+            mainAppView.classList.remove('hidden');
+
+            renderUIForRole();
+            await attachDataListeners();
+            setLanguage(currentLang);
+        }
+
+        function renderUIForRole() {
+            const isAdminOrStaff = currentRole === 'admin' || currentRole === 'staff';
+            document.getElementById('admin-staff-view').classList.toggle('hidden', !isAdminOrStaff);
+            document.getElementById('staff-management-section').classList.toggle('hidden', currentRole !== 'admin');
+            document.getElementById('attendance-requests-section').classList.toggle('hidden', !isAdminOrStaff);
+            document.getElementById('mass-reports-section').classList.toggle('hidden', !isAdminOrStaff);
+        }
+        
+        // --- DATA LISTENERS ---
+        async function attachDataListeners() {
+            unsubscribeListeners.forEach(unsub => unsub());
+            unsubscribeListeners = [];
+
+            const collectionsToListen = ['attendance', 'masses', 'massExceptions', 'members', 'staff'];
+            if (currentRole === 'admin' || currentRole === 'staff') {
+                collectionsToListen.push('requests', 'reports');
+            }
+
+            collectionsToListen.forEach(coll => {
+                const q = query(collection(db, `artifacts/${appId}/public/data/${coll}`));
+                const unsub = onSnapshot(q, (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    switch(coll) {
+                        case 'members': renderMemberList(data); break;
+                        case 'staff': renderStaffList(data); break;
+                        case 'masses': renderMassList(data); renderCalendar(); break;
+                        case 'requests': renderRequestList(data); break;
+                        case 'reports': renderReportList(data); break;
+                        case 'attendance':
+                        case 'massExceptions':
+                            renderCalendar();
+                            renderRecords();
+                            break;
+                    }
+                }, (error) => console.error(`Error listening to ${coll}:`, error));
+                unsubscribeListeners.push(unsub);
+            });
+            
+            await renderCalendar();
+            await renderRecords();
+        }
+
+        // --- UI RENDERING FUNCTIONS ---
+        
+        function renderUserList(elementId, items, nameKey, idKey, deleteCollection) {
+            const list = document.getElementById(elementId);
+            let html = '';
+            items.forEach(item => {
+                const itemName = item[nameKey] || item.id;
+                html += `<div class="flex justify-between items-center p-2 border-b">
+                    <span>${itemName} (${item[idKey]})</span>
+                    <div class="flex items-center space-x-2">
+                        ${currentRole === 'admin' ? `<button onclick="window.openPasswordModal('${deleteCollection}', '${item.id}', '${itemName}')" class="text-gray-500 hover:text-blue-600" title="Change Password">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2V7a5 5 0 00-5-5zm0 2a3 3 0 013 3v2H7V7a3 3 0 013-3z" /></svg>
+                        </button>` : ''}
+                        <button onclick="window.deleteEntity('${deleteCollection}', '${item.id}')" class="text-red-500 hover:text-red-700 text-xl" title="Delete">&times;</button>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html;
+        }
+        
+        function renderMemberList(members) { renderUserList('member-list', members, 'name', 'id', 'members'); }
+        function renderStaffList(staff) { renderUserList('staff-list', staff, 'id', 'id', 'staff'); }
+
+        function renderMassList(masses) {
+             const list = document.getElementById('mass-list');
+             list.innerHTML = masses.map(m => `
+                <div class="flex justify-between items-center p-2 border-b">
+                    <span>${translations[currentLang]['day_'+m.day.toLowerCase()] || m.day} at ${m.time}</span>
+                    <button onclick="window.deleteEntity('masses', '${m.id}')" class="text-red-500 hover:text-red-700 text-xl">&times;</button>
+                </div>
+            `).join('');
+        }
+        
+        async function renderCalendar() {
+            document.getElementById('calendar-title').textContent = currentDate.toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'default', { month: 'long', year: 'numeric' });
+            const calendarBody = document.getElementById('calendar-body');
+            calendarBody.innerHTML = '';
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const recurringMasses = (await getDocs(collection(db, `artifacts/${appId}/public/data/masses`))).docs.map(d => ({ id: d.id, ...d.data() }));
+            const attendanceRecords = (await getDocs(collection(db, `artifacts/${appId}/public/data/attendance`))).docs.map(d => ({id: d.id, ...d.data()}));
+            const exceptions = (await getDocs(collection(db, `artifacts/${appId}/public/data/massExceptions`))).docs.map(d => ({id: d.id, ...d.data()}));
+            
+            for (let i = 0; i < firstDay; i++) calendarBody.insertAdjacentHTML('beforeend', `<div class="p-2 border bg-gray-50"></div>`);
+            
+            const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dayOfWeekName = daysOfWeek[date.getDay()];
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                let dayMasses = recurringMasses
+                    .filter(m => m.day === dayOfWeekName)
+                    .map(m => ({ ...m, type: 'recurring', massId: `${dateStr}_${m.time}` }));
+
+                const dayExceptions = exceptions.filter(ex => ex.date === dateStr);
+
+                dayExceptions.filter(ex => ex.type === 'cancelled').forEach(cancelEx => {
+                    dayMasses = dayMasses.filter(m => m.id !== cancelEx.recurringMassId);
+                });
+                
+                dayExceptions.filter(ex => ex.type === 'temporary').forEach(tempEx => {
+                    dayMasses.push({ ...tempEx, type: 'temporary', massId: `${dateStr}_${tempEx.time}` });
+                });
+
+                let dayHtml = `<div class="calendar-day p-2 border relative">
+                                <div class="flex justify-between items-start">
+                                    <strong>${day}</strong>
+                                    ${(currentRole === 'admin' || currentRole === 'staff') ? `<button onclick="window.openExceptionModal('${dateStr}')" class="add-mass-btn bg-blue-500 text-white rounded-full w-6 h-6 text-center leading-6 font-bold">+</button>` : ''}
+                                </div>`;
+                
+                dayMasses.forEach(mass => {
+                    const attendedCount = attendanceRecords.filter(r => r.massId === mass.massId).length;
+                    const title = mass.type === 'temporary' ? mass.title : mass.time;
+                    dayHtml += `<div class="bg-blue-100 text-blue-800 text-xs rounded p-1 mt-1 cursor-pointer hover:bg-blue-200" onclick="window.openMassModal('${mass.massId}', '${title}', '${mass.type}')">
+                           ${title} (${attendedCount} ${translations[currentLang].attended})
+                        </div>`;
+                });
+                
+                 dayExceptions.filter(ex => ex.type === 'cancelled').forEach(cancelEx => {
+                    const cancelledMass = recurringMasses.find(m => m.id === cancelEx.recurringMassId);
+                    if (cancelledMass) {
+                        dayHtml += `<div class="bg-red-100 text-red-800 text-xs rounded p-1 mt-1 line-through" title="Cancelled">
+                            ${cancelledMass.time}
+                            ${(currentRole === 'admin' || currentRole === 'staff') ? `<button onclick="window.deleteEntity('massExceptions', '${cancelEx.id}')" class="ml-2 text-red-500">&times;</button>` : ''}
+                        </div>`;
+                    }
+                });
+
+                dayHtml += `</div>`;
+                calendarBody.insertAdjacentHTML('beforeend', dayHtml);
+            }
+        }
+        
+        function renderRequestList(requests) {
+            const list = document.getElementById('request-list');
+            list.innerHTML = requests.length === 0 ? `<p class="text-gray-500" data-lang-key="no_pending_requests">${translations[currentLang].no_pending_requests}</p>` : requests.map(req => `
+                <div class="p-3 border rounded-md bg-yellow-50">
+                    <p><strong>Member:</strong> ${req.memberName} (${req.memberId})</p>
+                    <p><strong>Mass:</strong> ${req.massId.replace('_', ' at ')}</p>
+                    <p><strong>Reason:</strong> ${req.reason}</p>
+                    <div class="mt-2 space-x-2">
+                        <button onclick="window.handleRequest('${req.id}', true)" class="px-3 py-1 text-sm bg-green-500 text-white rounded" data-lang-key="approve">${translations[currentLang].approve}</button>
+                        <button onclick="window.handleRequest('${req.id}', false)" class="px-3 py-1 text-sm bg-red-500 text-white rounded" data-lang-key="deny">${translations[currentLang].deny}</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function renderRecords() {
+            const filterDate = document.getElementById('record-filter-date').value;
+            const list = document.getElementById('records-list');
+            list.innerHTML = '<p>Loading records...</p>';
+            
+            const attendanceSnapshot = await getDocs(query(collection(db, `artifacts/${appId}/public/data/attendance`)));
+            const allRecords = attendanceSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+
+            let recordsToProcess = allRecords;
+
+            if (currentRole === 'member') {
+                const memberMassIds = new Set(allRecords.filter(r => r.memberId === currentMemberDetails.code).map(r => r.massId));
+                recordsToProcess = allRecords.filter(r => memberMassIds.has(r.massId));
+            }
+
+            if (filterDate) {
+                recordsToProcess = recordsToProcess.filter(r => r.massId.startsWith(filterDate));
+            }
+
+            if (recordsToProcess.length === 0) {
+                list.innerHTML = `<p class="text-gray-500" data-lang-key="no_records_found">${translations[currentLang].no_records_found}</p>`;
+                return;
+            }
+
+            const groupedRecords = recordsToProcess.reduce((acc, record) => {
+                if (!acc[record.massId]) {
+                    acc[record.massId] = { names: [], codes: [] };
+                }
+                acc[record.massId].names.push(record.memberName);
+                acc[record.massId].codes.push(record.memberId);
+                return acc;
+            }, {});
+
+            list.innerHTML = `
+                <table class="w-full text-left">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="p-2">Mass Date & Time</th>
+                            <th class="p-2">Attendees (Name)</th>
+                            <th class="p-2">Attendees (Code)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.entries(groupedRecords).map(([massId, data]) => `
+                            <tr class="border-b">
+                                <td class="p-2">${massId.replace('_', ' at ')}</td>
+                                <td class="p-2">${data.names.join(', ')}</td>
+                                <td class="p-2">${data.codes.join(', ')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        }
+        
+        function renderReportList(reports) {
+            const list = document.getElementById('report-list');
+            const statusColors = {
+                pending: 'bg-yellow-100 text-yellow-800',
+                approved: 'bg-green-100 text-green-800',
+                denied: 'bg-red-100 text-red-800',
+            };
+            list.innerHTML = reports.length === 0 ? `<p class="text-gray-500">No reports submitted.</p>` : reports.map(rep => `
+                <div class="p-3 border rounded-md">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-bold">${rep.massId.replace('_', ' at ')}</p>
+                            <p class="text-sm text-gray-600">${translations[currentLang].report_submitted_by}: ${rep.submitterName} (${rep.submitterId})</p>
+                        </div>
+                        <span class="text-xs font-semibold px-2 py-1 rounded-full ${statusColors[rep.status] || 'bg-gray-100'}">
+                            ${translations[currentLang][rep.status] || rep.status}
+                        </span>
+                    </div>
+                    <div class="mt-2 pt-2 border-t">
+                        <p><strong>${translations[currentLang].report_briefing}:</strong> ${rep.briefing}</p>
+                        <p><strong>${translations[currentLang].report_chief_officer}:</strong> ${rep.chiefOfficerReport}</p>
+                    </div>
+                    ${(currentRole === 'admin' || currentRole === 'staff') && rep.status === 'pending' ? `
+                    <div class="mt-2 pt-2 border-t flex justify-end space-x-2">
+                        <button onclick="window.handleReportStatus('${rep.id}', 'approved')" class="px-3 py-1 text-sm bg-green-500 text-white rounded">${translations[currentLang].approve}</button>
+                        <button onclick="window.handleReportStatus('${rep.id}', 'denied')" class="px-3 py-1 text-sm bg-red-500 text-white rounded">${translations[currentLang].deny}</button>
+                    </div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // --- CORE LOGIC & EVENT HANDLERS ---
+        document.getElementById('add-member-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('member-name').value;
+            const code = document.getElementById('member-code').value;
+            const password = document.getElementById('member-password').value;
+            if (!name || !code || !password) return;
+            await setDoc(doc(db, `artifacts/${appId}/public/data/members`, code), { name, password, id: code });
+            e.target.reset();
+        });
+        document.getElementById('add-staff-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('staff-code').value;
+            const password = document.getElementById('staff-password').value;
+            if (!code || !password) return;
+            await setDoc(doc(db, `artifacts/${appId}/public/data/staff`, code), { password });
+            e.target.reset();
+        });
+        document.getElementById('add-mass-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const day = document.getElementById('mass-day').value;
+            const time = document.getElementById('mass-time').value;
+            if (!day || !time) return;
+            await addDoc(collection(db, `artifacts/${appId}/public/data/masses`), { day, time });
+            e.target.reset();
+        });
+        document.getElementById('prev-month-btn').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
+        document.getElementById('next-month-btn').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
+        document.getElementById('record-filter-date').addEventListener('change', renderRecords);
+        document.getElementById('export-csv-btn').addEventListener('click', window.exportRecordsToCSV);
+        document.getElementById('import-csv-btn').addEventListener('click', () => document.getElementById('csv-import-input').click());
+        document.getElementById('csv-import-input').addEventListener('change', window.importRecordsFromCSV);
+        document.getElementById('change-password-form').addEventListener('submit', window.handlePasswordChange);
+        document.getElementById('mass-report-form').addEventListener('submit', window.handleReportSubmit);
+
+
+        // --- MODAL LOGIC ---
+        window.openMassModal = async (massId, massTitle) => {
+            document.getElementById('mass-modal-title').textContent = massTitle;
+            const content = document.getElementById('mass-modal-content');
+            content.innerHTML = '<p>Loading...</p>';
+            document.getElementById('mass-detail-modal').classList.remove('hidden');
+
+            const massAssignmentsRef = doc(db, `artifacts/${appId}/public/data/massAssignments`, massId);
+            const massAssignmentsDoc = await getDoc(massAssignmentsRef);
+            const assignedMemberIds = massAssignmentsDoc.exists() ? massAssignmentsDoc.data().memberIds : [];
+            const attendanceRecords = (await getDocs(query(collection(db, `artifacts/${appId}/public/data/attendance`), where("massId", "==", massId)))).docs.map(d => d.data().memberId);
+            
+            let html = '';
+            if (currentRole === 'admin' || currentRole === 'staff') {
+                const membersSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/members`));
+                const allMembers = membersSnapshot.docs.map(d => ({ id: d.id, name: d.data().name, displayName: `${d.data().name} (${d.id})` }));
+
+                const staffSnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/staff`));
+                const allStaff = staffSnapshot.docs.map(d => ({ id: d.id, name: d.id, displayName: `${d.id} (Staff)` }));
+                
+                const allAssignablePeople = [...allMembers, ...allStaff];
+                allAssignablePeople.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+                html += `<div><h4 class="font-bold mb-2">${translations[currentLang].assign} / ${translations[currentLang].present}</h4>`;
+                allAssignablePeople.forEach(person => {
+                    const isAssigned = assignedMemberIds.includes(person.id);
+                    const isPresent = attendanceRecords.includes(person.id);
+                    html += `<div class="flex items-center justify-between p-2 border-b">
+                        <span>${person.displayName}</span>
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center space-x-2"><span>${translations[currentLang].assign}:</span><input type="checkbox" onchange="window.toggleAssignment('${massId}', '${person.id}')" ${isAssigned ? 'checked' : ''}></label>
+                            <label class="flex items-center space-x-2"><span>${translations[currentLang].present}:</span><input type="checkbox" onchange="window.toggleAttendance('${massId}', '${person.id}', '${person.name}')" ${isPresent ? 'checked' : ''}></label>
+                        </div></div>`;
+                });
+                html += '</div>';
+            } else { // Member view
+                const memberId = currentMemberDetails.code;
+                if (!assignedMemberIds.includes(memberId)) html = `<p data-lang-key="not_assigned">${translations[currentLang].not_assigned}</p>`;
+                else if (attendanceRecords.includes(memberId)) html = `<p class="text-green-600 font-semibold" data-lang-key="attendance_marked">${translations[currentLang].attendance_marked}</p>`;
+                else {
+                    const [dateStr, timeStr] = massId.split('_');
+                    const massDateTime = new Date(`${dateStr}T${timeStr}`);
+                    const diffMinutes = (new Date() - massDateTime) / 60000;
+                    if (Math.abs(diffMinutes) <= 30) {
+                        html = `<button onclick="window.markOwnAttendance('${massId}')" class="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700" data-lang-key="mark_attendance_button">${translations[currentLang].mark_attendance_button}</button>`;
+                    } else {
+                        html = `<p class="mb-2">The attendance window has closed. You can request to be marked present.</p>
+                            <textarea id="attendance-request-reason" class="w-full p-2 border rounded-md" data-lang-placeholder="request_reason_placeholder" placeholder="${translations[currentLang].request_reason_placeholder}"></textarea>
+                            <button onclick="window.submitAttendanceRequest('${massId}')" class="mt-2 w-full py-2 px-4 bg-orange-500 text-white rounded-md hover:bg-orange-600" data-lang-key="send_request_button">${translations[currentLang].send_request_button}</button>`;
+                    }
+                }
+            }
+            content.innerHTML = html;
+            
+            const reportBtn = document.getElementById('mass-report-btn');
+            reportBtn.onclick = () => window.openReportModal(massId);
+        };
+        
+        window.openExceptionModal = async (dateStr) => {
+            document.getElementById('exception-date').value = dateStr;
+            const typeSelector = document.getElementById('exception-type');
+            const tempFields = document.getElementById('temporary-mass-fields');
+            const cancelFields = document.getElementById('cancelled-mass-fields');
+            const cancelSelect = document.getElementById('cancellation-mass-id');
+            
+            const date = new Date(dateStr);
+            const dayOfWeekName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getUTCDay()];
+            
+            const recurringMasses = (await getDocs(query(collection(db, `artifacts/${appId}/public/data/masses`), where("day", "==", dayOfWeekName)))).docs.map(d => ({id: d.id, ...d.data()}));
+            
+            cancelSelect.innerHTML = recurringMasses.map(m => `<option value="${m.id}">${m.time}</option>`).join('');
+
+            const toggleFields = () => {
+                const isTemporary = typeSelector.value === 'temporary';
+                tempFields.classList.toggle('hidden', !isTemporary);
+                cancelFields.classList.toggle('hidden', isTemporary);
+            };
+            
+            typeSelector.onchange = toggleFields;
+            toggleFields();
+            
+            document.getElementById('add-exception-modal').classList.remove('hidden');
+        };
+        
+        document.getElementById('add-exception-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const date = document.getElementById('exception-date').value;
+            const type = document.getElementById('exception-type').value;
+            
+            if (type === 'temporary') {
+                const time = document.getElementById('exception-time').value;
+                const title = document.getElementById('exception-title').value;
+                if (!time || !title) return;
+                await addDoc(collection(db, `artifacts/${appId}/public/data/massExceptions`), { date, type, time, title });
+            } else { // cancelled
+                const recurringMassId = document.getElementById('cancellation-mass-id').value;
+                if (!recurringMassId) return;
+                await addDoc(collection(db, `artifacts/${appId}/public/data/massExceptions`), { date, type, recurringMassId });
+            }
+            
+            document.getElementById('add-exception-form').reset();
+            window.closeModal('add-exception-modal');
+        });
+        
+        window.openPasswordModal = (collectionName, id, name) => {
+            document.getElementById('password-user-collection').value = collectionName;
+            document.getElementById('password-user-id').value = id;
+            document.getElementById('password-user-name').textContent = name;
+            document.getElementById('change-password-modal').classList.remove('hidden');
+            document.getElementById('change-password-form').reset();
+        };
+        
+        window.openReportModal = (massId) => {
+            window.closeModal('mass-detail-modal');
+            document.getElementById('report-mass-id').value = massId;
+            document.getElementById('mass-report-modal').classList.remove('hidden');
+            document.getElementById('mass-report-form').reset();
+        };
+
+        window.closeModal = (modalId) => document.getElementById(modalId).classList.add('hidden');
+
+        // --- ACTIONS (exposed to window for onclick handlers) ---
+        window.deleteEntity = (collectionName, docId) => {
+            const key = `confirm_delete_${collectionName.slice(0, -1)}`;
+            showConfirm(translations[currentLang][key] || `Are you sure you want to delete this?`, async () => {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/${collectionName}`, docId));
+            });
+        };
+        window.toggleAssignment = async (massId, personId) => {
+            const ref = doc(db, `artifacts/${appId}/public/data/massAssignments`, massId);
+            const docSnap = await getDoc(ref);
+            let ids = docSnap.exists() ? docSnap.data().memberIds : [];
+            ids.includes(personId) ? ids = ids.filter(id => id !== personId) : ids.push(personId);
+            await setDoc(ref, { memberIds: ids }, { merge: true });
+        };
+        window.toggleAttendance = async (massId, personId, personName) => {
+            const attendanceId = `${massId}_${personId}`;
+            const ref = doc(db, `artifacts/${appId}/public/data/attendance`, attendanceId);
+            if ((await getDoc(ref)).exists()) await deleteDoc(ref);
+            else await setDoc(ref, { massId, memberId: personId, memberName: personName, timestamp: new Date() });
+        };
+        window.markOwnAttendance = async (massId) => {
+             await window.toggleAttendance(massId, currentMemberDetails.code, currentMemberDetails.name);
+             window.closeModal('mass-detail-modal');
+        };
+        window.submitAttendanceRequest = async (massId) => {
+            const reason = document.getElementById('attendance-request-reason').value;
+            if (!reason) { showConfirm(translations[currentLang].provide_reason); return; }
+            await addDoc(collection(db, `artifacts/${appId}/public/data/requests`), { massId, memberId: currentMemberDetails.code, memberName: currentMemberDetails.name, reason, timestamp: new Date() });
+            showConfirm(translations[currentLang].request_sent);
+            window.closeModal('mass-detail-modal');
+        };
+        window.handleRequest = async (requestId, approve) => {
+            const requestRef = doc(db, `artifacts/${appId}/public/data/requests`, requestId);
+            if (approve) {
+                const { massId, memberId, memberName } = (await getDoc(requestRef)).data();
+                await window.toggleAttendance(massId, memberId, memberName);
+            }
+            await deleteDoc(requestRef);
+        };
+        
+        window.handlePasswordChange = async (e) => {
+            e.preventDefault();
+            const collection = document.getElementById('password-user-collection').value;
+            const id = document.getElementById('password-user-id').value;
+            const newPassword = document.getElementById('new-password').value;
+
+            if (!collection || !id || !newPassword) return;
+
+            const userDocRef = doc(db, `artifacts/${appId}/public/data/${collection}`, id);
+            try {
+                await updateDoc(userDocRef, { password: newPassword });
+                showConfirm(translations[currentLang].password_changed);
+                window.closeModal('change-password-modal');
+            } catch (error) {
+                console.error("Error updating password:", error);
+                showConfirm("Error: Could not change password.");
+            }
+        };
+        
+        window.handleReportSubmit = async (e) => {
+            e.preventDefault();
+            const massId = document.getElementById('report-mass-id').value;
+            const briefing = document.getElementById('report-briefing').value;
+            const chiefOfficerReport = document.getElementById('report-chief-officer').value;
+            
+            if (!massId || (!briefing && !chiefOfficerReport)) {
+                showConfirm("Please fill in at least one report field.");
+                return;
+            }
+
+            const submitterId = currentUser.code;
+            const submitterName = currentUser.name;
+
+            await addDoc(collection(db, `artifacts/${appId}/public/data/reports`), {
+                massId,
+                briefing,
+                chiefOfficerReport,
+                submitterId,
+                submitterName,
+                status: 'pending',
+                submittedAt: new Date()
+            });
+
+            window.closeModal('mass-report-modal');
+            showConfirm(translations[currentLang].report_submitted_success);
+        };
+        
+        window.handleReportStatus = async (reportId, newStatus) => {
+            const reportRef = doc(db, `artifacts/${appId}/public/data/reports`, reportId);
+            await updateDoc(reportRef, { status: newStatus });
+        };
+        
+        window.importRecordsFromCSV = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showConfirm(translations[currentLang].import_confirm, () => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const text = e.target.result;
+                    const rows = text.split('\n').slice(1); // Skip header row
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    for (const row of rows) {
+                        if (!row.trim()) continue;
+                        try {
+                            const columns = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(c => c.replace(/"/g, ''));
+                            const massId = columns[0].replace(' at ', '_');
+                            const names = columns[1].split(', ');
+                            const codes = columns[2].split(', ');
+
+                            for (let i = 0; i < codes.length; i++) {
+                                const memberId = codes[i];
+                                const memberName = names[i] || memberId;
+                                const attendanceId = `${massId}_${memberId}`;
+                                const attendanceRef = doc(db, `artifacts/${appId}/public/data/attendance`, attendanceId);
+                                await setDoc(attendanceRef, { massId, memberId, memberName, timestamp: new Date() }, { merge: true });
+                            }
+                            successCount++;
+                        } catch (err) {
+                            errorCount++;
+                            console.error("Error processing row:", row, err);
+                        }
+                    }
+                    showConfirm(`Import complete. ${successCount} masses processed. ${errorCount} rows failed.`);
+                    event.target.value = '';
+                };
+                reader.readAsText(file);
+            });
+        };
+
+        window.exportRecordsToCSV = async () => {
+            const attendanceSnapshot = await getDocs(query(collection(db, `artifacts/${appId}/public/data/attendance`)));
+            let allRecords = attendanceSnapshot.docs.map(doc => doc.data());
+
+            let recordsToProcess = allRecords;
+            const filterDate = document.getElementById('record-filter-date').value;
+
+            if (currentRole === 'member') {
+                const memberMassIds = new Set(allRecords.filter(r => r.memberId === currentMemberDetails.code).map(r => r.massId));
+                recordsToProcess = allRecords.filter(r => memberMassIds.has(r.massId));
+            }
+            if (filterDate) {
+                recordsToProcess = recordsToProcess.filter(r => r.massId.startsWith(filterDate));
+            }
+
+            if (recordsToProcess.length === 0) {
+                showConfirm("No records to export.");
+                return;
+            }
+
+            const groupedRecords = recordsToProcess.reduce((acc, record) => {
+                if (!acc[record.massId]) {
+                    acc[record.massId] = { names: [], codes: [] };
+                }
+                acc[record.massId].names.push(record.memberName);
+                acc[record.massId].codes.push(record.memberId);
+                return acc;
+            }, {});
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Mass Date & Time,Attendees (Name),Attendees (Code)\r\n";
+
+            for (const [massId, data] of Object.entries(groupedRecords)) {
+                const row = [
+                    massId.replace('_', ' at '),
+                    `"${data.names.join(', ')}"`,
+                    `"${data.codes.join(', ')}"`
+                ].join(",");
+                csvContent += row + "\r\n";
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            const fileNameDate = new Date().toISOString().slice(0, 10);
+            link.setAttribute("download", `attendance_records_${fileNameDate}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // --- CUSTOM CONFIRM MODAL ---
+        const confirmModal = document.getElementById('custom-confirm-modal');
+        let confirmCallback = null;
+        function showConfirm(text, callback) {
+            document.getElementById('confirm-modal-text').textContent = text;
+            confirmCallback = callback;
+            confirmModal.classList.remove('hidden');
+            document.getElementById('confirm-modal-ok').style.display = callback ? 'inline-block' : 'none';
+            document.getElementById('confirm-modal-cancel').textContent = callback ? translations[currentLang].cancel_button : translations[currentLang].ok_button;
+        }
+        document.getElementById('confirm-modal-ok').addEventListener('click', () => { if (confirmCallback) confirmCallback(); confirmModal.classList.add('hidden'); });
+        document.getElementById('confirm-modal-cancel').addEventListener('click', () => confirmModal.classList.add('hidden'));
+
+    </script>
+</body>
+</html>
