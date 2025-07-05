@@ -29,15 +29,30 @@
         .calendar-day:hover .add-mass-btn {
             opacity: 1;
         }
+        #loading-overlay {
+            transition: opacity 0.5s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <div id="app" class="max-w-7xl mx-auto p-4">
+    <div id="loading-overlay" class="fixed inset-0 bg-white flex items-center justify-center z-[100]">
+        <div class="text-center">
+            <img src="https://i.postimg.cc/NjV6BNRs/SJAS-logo.jpg" alt="St. John Altar Server Logo" class="w-24 h-24 mx-auto mb-4 rounded-full animate-pulse">
+            <p class="text-lg font-semibold text-gray-700" data-lang-key="loading">Loading System...</p>
+        </div>
+    </div>
+
+    <div id="app" class="max-w-7xl mx-auto p-4 opacity-0">
 
         <!-- Login View -->
-        <div id="login-view" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-10">
-            <img src="https://i.postimg.cc/NjV6BNRs/SJAS-logo.jpg" alt="St. John Altar Server Logo" class="w-24 h-24 mx-auto mb-4 rounded-full">
+        <div id="login-view" class="relative max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-10">
+            <button id="login-lang-switcher" class="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-200">
+                <svg class="h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m0 18a9 9 0 009-9M3 12h18M3 12a9 9 0 019-9m-9 9a9 9 0 009 9" />
+                </svg>
+            </button>
+            <img src="https://i.postimg.cc/NjV6BNRs/SJAS-logo.jpg" alt="St. John Altar Server Logo" class="w-32 h-32 mx-auto mb-4 rounded-full">
             <h1 class="text-2xl font-bold text-center mb-6" data-lang-key="login_title">St. John Altar Server Attendance</h1>
             <div id="login-error" class="text-red-500 text-center mb-4 hidden"></div>
             <form id="login-form">
@@ -59,7 +74,7 @@
                 <div>
                     <h1 class="text-3xl font-bold text-gray-900" data-lang-key="main_title">St. John Altar Server Attendance System</h1>
                     <p class="text-gray-600"><span data-lang-key="welcome">Welcome</span>, <span id="user-role" class="font-semibold"></span> <span id="user-name" class="font-semibold"></span>!</p>
-                    <p class="text-gray-600 text-xs">User ID: <span id="user-id-display" class="font-mono"></span></p>
+                    <p class="text-gray-600 text-xs">Project ID: <span id="user-id-display" class="font-mono"></span></p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <button id="lang-switcher" class="p-2 rounded-full hover:bg-gray-200">
@@ -254,12 +269,20 @@
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, setLogLevel, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, query, where, getDocs, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- PRE-DEFINED VARIABLES ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'altar-boy-attendance-dev';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIza...", authDomain: "...", projectId: "..." };
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // --- YOUR PERMANENT FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyAP6Fq-ckWNKU4XQHEQGX6oWqlD-t5j3UE",
+          authDomain: "st-john-altar-server.firebaseapp.com",
+          projectId: "st-john-altar-server",
+          storageBucket: "st-john-altar-server.appspot.com",
+          messagingSenderId: "255800038768",
+          appId: "1:255800038768:web:2f0070a81555a6261febb5"
+        };
+        
+        // Use the project ID from your config as the app's unique identifier
+        const appId = firebaseConfig.projectId;
 
         // --- FIREBASE INITIALIZATION ---
         const app = initializeApp(firebaseConfig);
@@ -270,6 +293,7 @@
         // --- I18N (Internationalization) ---
         const translations = {
             en: {
+                loading: "Loading System...",
                 login_title: "St. John Altar Server Attendance", main_title: "St. John Altar Server Attendance System",
                 member_management: "Member Management", member_name_placeholder: "Member Name", member_code_placeholder: "Unique Code", password_placeholder: "Password", add_member_button: "Add Member",
                 staff_management: "Staff Management", staff_code_placeholder: "Staff Code", add_staff_button: "Add Staff",
@@ -297,6 +321,7 @@
                 report_submitted_success: "Report submitted successfully.", welcome: "Welcome", logout_button: "Logout",
             },
             zh: {
+                loading: "系統加載中...",
                 login_title: "聖若翰輔祭會出席系統", main_title: "聖若翰輔祭會出席系統",
                 member_management: "成員管理", member_name_placeholder: "成員姓名", member_code_placeholder: "唯一代碼", password_placeholder: "密碼", add_member_button: "新增成員",
                 staff_management: "職員管理", staff_code_placeholder: "職員代碼", add_staff_button: "新增職員",
@@ -361,6 +386,8 @@
         let unsubscribeListeners = [];
 
         // --- DOM ELEMENTS ---
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const appContainer = document.getElementById('app');
         const loginView = document.getElementById('login-view');
         const mainAppView = document.getElementById('main-app-view');
         const loginForm = document.getElementById('login-form');
@@ -372,14 +399,26 @@
              setLanguage(currentLang);
         };
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                try {
-                    if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
-                    else await signInAnonymously(auth);
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                }
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Firebase Auth Ready:", user.uid);
+                // Auth is ready, hide loading screen and show the app
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                    appContainer.style.opacity = '1';
+                }, 500);
+            } else {
+                // This block will run on initial load if no user is signed in.
+                console.log("No user found, attempting anonymous sign-in.");
+                signInAnonymously(auth).catch(error => {
+                    console.error("Anonymous sign-in failed:", error);
+                    let errorMessage = "Error: Could not connect to the database. Please refresh.";
+                    if (error.code === 'auth/configuration-not-found') {
+                        errorMessage = "Action Required: Please enable 'Anonymous' sign-in in your Firebase project's Authentication settings.";
+                    }
+                    document.querySelector('#loading-overlay p').textContent = errorMessage;
+                });
             }
         });
 
@@ -416,10 +455,12 @@
             loginForm.reset();
         });
         
-        document.getElementById('lang-switcher').addEventListener('click', () => {
+        function toggleLanguage() {
             const newLang = currentLang === 'en' ? 'zh' : 'en';
             setLanguage(newLang);
-        });
+        }
+        document.getElementById('lang-switcher').addEventListener('click', toggleLanguage);
+        document.getElementById('login-lang-switcher').addEventListener('click', toggleLanguage);
 
         async function setupSession(role, userDetails) {
             currentRole = role;
@@ -428,7 +469,7 @@
 
             document.getElementById('user-role').textContent = role.charAt(0).toUpperCase() + role.slice(1);
             document.getElementById('user-name').textContent = userDetails.name || userDetails.code;
-            document.getElementById('user-id-display').textContent = auth.currentUser?.uid || 'N/A';
+            document.getElementById('user-id-display').textContent = appId;
             
             loginView.classList.add('hidden');
             mainAppView.classList.remove('hidden');
